@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Assignment Submission Portal - Demo</title>
+  <!-- colors.css is copied here from static/colors.css by the CI deploy job -->
+  <link rel="stylesheet" href="colors.css">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background:var(--bg); color:var(--ink); }
+    header { background:var(--brand); color:var(--on-brand); padding:22px 16px; text-align:center; }
+    header h1 { margin:0; font-size:1.5rem; }
+    header p { margin:6px 0 0; opacity:.9; }
+    .demo { background:var(--demo-bg); color:var(--demo-ink); border-bottom:1px solid var(--demo-border); padding:8px 16px; text-align:center; font-size:.9rem; }
+    main { max-width:900px; margin:24px auto; padding:0 16px; display:grid; gap:20px; }
+    section { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px; }
+    h2 { margin-top:0; font-size:1.1rem; }
+    label { display:block; font-weight:600; margin:14px 0 6px; }
+    input[type=text] { width:100%; padding:10px 12px; border:1px solid var(--input-border); border-radius:8px; font-size:1rem; }
+    input.invalid { border-color:var(--err); }
+    .alert { padding:12px 14px; border-radius:8px; margin-bottom:10px; }
+    .alert.error { background:var(--errbg); color:var(--err); border:1px solid var(--err-border); }
+    .alert.success { background:var(--okbg); color:var(--ok); border:1px solid var(--ok-border); }
+    .hidden { display:none; }
+    button { margin-top:18px; background:var(--brand); color:var(--on-brand); border:0; border-radius:8px; padding:11px 22px; font-size:1rem; cursor:pointer; }
+    table { width:100%; border-collapse:collapse; font-size:.95rem; }
+    th, td { text-align:left; padding:10px 8px; border-bottom:1px solid var(--line); vertical-align:top; word-break:break-word; }
+    th { color:var(--muted); font-weight:600; }
+    .empty { color:var(--muted); }
+    .table-wrap { overflow-x:auto; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Assignment Submission Portal</h1>
+    <p>Submit the link to your assignment</p>
+  </header>
+  <div class="demo">Static demo - submissions are kept only in this browser. Published automatically by CI after all tests pass.</div>
+  <main>
+    <section>
+      <h2>New submission</h2>
+      <div id="success" class="alert success hidden" role="status">Submission saved successfully.</div>
+      <div id="errors" class="alert error hidden" role="alert">
+        <strong>Submission rejected. Please fix the following:</strong>
+        <ul id="error-list"></ul>
+      </div>
+      <form id="form" novalidate>
+        <label for="student_name">Student name</label>
+        <input type="text" id="student_name" autocomplete="off">
+        <label for="registration_number">Registration number</label>
+        <input type="text" id="registration_number" autocomplete="off">
+        <label for="assignment_title">Assignment title</label>
+        <input type="text" id="assignment_title" autocomplete="off">
+        <label for="submission_url">Submission URL</label>
+        <input type="text" id="submission_url" placeholder="https://github.com/you/your-assignment" autocomplete="off">
+        <button type="submit">Submit assignment</button>
+      </form>
+    </section>
+    <section>
+      <h2>Saved submissions (<span id="count">0</span>)</h2>
+      <p id="empty" class="empty">No submissions yet.</p>
+      <div class="table-wrap">
+        <table id="table" class="hidden">
+          <thead><tr><th>Student</th><th>Reg. no.</th><th>Assignment</th><th>Link</th><th>Submitted</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    var KEY = "assignment-portal-demo";
+    var FIELDS = ["student_name", "registration_number", "assignment_title", "submission_url"];
+
+    function load() {
+      try { var d = JSON.parse(localStorage.getItem(KEY) || "[]"); return Array.isArray(d) ? d : []; }
+      catch (e) { return []; }
+    }
+    function save(items) {
+      try { localStorage.setItem(KEY, JSON.stringify(items)); } catch (e) { /* storage unavailable */ }
+    }
+
+    // Same rules as validation.py in the real portal
+    function isValidUrl(value) {
+      if (!value || /\s/.test(value)) return false;
+      // new URL() accepts "http:example.com"; Python's urlparse does not, so require "//"
+      if (!/^https?:\/\//i.test(value)) return false;
+      var u;
+      try { u = new URL(value); } catch (e) { return false; }
+      if (u.protocol !== "http:" && u.protocol !== "https:") return false;
+      var host = u.hostname;
+      if (!host) return false;
+      if (host === "localhost") return true;
+      return host.indexOf(".") > 0 && host.charAt(host.length - 1) !== ".";
+    }
+    function validate(v) {
+      var errors = {};
+      if (!v.student_name) errors.student_name = "Student name is required.";
+      if (!v.registration_number) errors.registration_number = "Registration number is required.";
+      if (!v.assignment_title) errors.assignment_title = "Assignment title is required.";
+      if (!v.submission_url) errors.submission_url = "Submission URL is required.";
+      else if (!isValidUrl(v.submission_url)) errors.submission_url = "Submission URL is invalid. Enter a full link starting with http:// or https://";
+      return errors;
+    }
+
+    function cell(text) { var td = document.createElement("td"); td.textContent = text; return td; }
+    function render() {
+      var items = load().slice().reverse();
+      var rows = document.getElementById("rows");
+      rows.innerHTML = "";
+      items.forEach(function (it) {
+        var tr = document.createElement("tr");
+        tr.appendChild(cell(it.student_name));
+        tr.appendChild(cell(it.registration_number));
+        tr.appendChild(cell(it.assignment_title));
+        var td = document.createElement("td");
+        var a = document.createElement("a");
+        a.href = it.submission_url; a.textContent = it.submission_url;
+        a.target = "_blank"; a.rel = "noopener noreferrer";
+        td.appendChild(a); tr.appendChild(td);
+        tr.appendChild(cell(it.submitted_at));
+        rows.appendChild(tr);
+      });
+      document.getElementById("count").textContent = items.length;
+      document.getElementById("empty").classList.toggle("hidden", items.length > 0);
+      document.getElementById("table").classList.toggle("hidden", items.length === 0);
+    }
+
+    document.getElementById("form").addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      var values = {};
+      FIELDS.forEach(function (f) { values[f] = document.getElementById(f).value.trim(); });
+      var errors = validate(values);
+
+      var list = document.getElementById("error-list");
+      list.innerHTML = "";
+      FIELDS.forEach(function (f) {
+        document.getElementById(f).classList.toggle("invalid", !!errors[f]);
+        if (errors[f]) { var li = document.createElement("li"); li.textContent = errors[f]; list.appendChild(li); }
+      });
+      var hasErrors = Object.keys(errors).length > 0;
+      document.getElementById("errors").classList.toggle("hidden", !hasErrors);
+      document.getElementById("success").classList.toggle("hidden", hasErrors);
+      if (hasErrors) return;
+
+      values.submitted_at = new Date().toISOString().replace("T", " ").slice(0, 19) + " UTC";
+      var items = load(); items.push(values); save(items);
+      FIELDS.forEach(function (f) { document.getElementById(f).value = ""; });
+      render();
+    });
+
+    render();
+  </script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+/* All colours used by the portal and the static demo. Change colours here only. */
+:root {
+  --bg: #f4f6fb;
+  --card: #ffffff;
+  --ink: #1d2433;
+  --muted: #667085;
+  --brand: #2f5bea;
+  --on-brand: #ffffff;
+  --line: #e4e7ec;
+  --input-border: #cfd4dc;
+  --err: #b42318;
+  --errbg: #fef3f2;
+  --err-border: #fecdca;
+  --ok: #067647;
+  --okbg: #ecfdf3;
+  --ok-border: #abefc6;
+  --demo-bg: #fff7e6;
+  --demo-ink: #7a4b00;
+  --demo-border: #ffd591;
+}
